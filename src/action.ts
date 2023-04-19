@@ -1,5 +1,5 @@
 import * as core from '@actions/core';
-import {gte, inc, parse, ReleaseType, SemVer, valid} from 'semver';
+import {clean, gte, inc, parse, ReleaseType, SemVer, valid} from 'semver';
 import {analyzeCommits} from '@semantic-release/commit-analyzer';
 import {generateNotes} from '@semantic-release/release-notes-generator';
 import {
@@ -185,8 +185,9 @@ export default async function main() {
     }
 
     let cleanVersion = newVersion.split("-");
+    newVersion = cleanVersion[0]
     core.info(`New version is ${newVersion}.`);
-    core.info(cleanVersion[0]);
+
 
     core.setOutput('new_version', newVersion);
 
