@@ -123,6 +123,7 @@ export default async function main() {
 
         commits = await getCommits(previousTag.commit.sha, commitRef);
 
+        core.info(`Commit size is ${commits.length}`)
         let bump = await analyzeCommits(
             {
                 releaseRules: mappedReleaseRules
