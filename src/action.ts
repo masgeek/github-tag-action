@@ -186,7 +186,7 @@ export default async function main() {
 
     let cleanVersion = newVersion.split("-");
     core.info(`New version is ${newVersion}.`);
-    core.info(cleanVersion.toString());
+    core.info(cleanVersion[0]);
 
     core.setOutput('new_version', newVersion);
 
