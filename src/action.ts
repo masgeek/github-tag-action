@@ -213,7 +213,7 @@ export default async function main() {
         }
     );
 
-    core.info(`Commit size is ${changelog.length}`)
+    core.info(`Commit size is ${commits.length} and changelog length is ${changelog.length}`)
     core.info(`Changelog is ${changelog}.`);
     core.setOutput('changelog', changelog);
 
