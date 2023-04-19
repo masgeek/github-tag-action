@@ -217,6 +217,12 @@ export default async function main() {
     core.info(`Changelog is ${changelog}.`);
     core.setOutput('changelog', changelog);
 
+    if (commits.length <= 3 && changelog.length <= 95) {
+        core.info(
+            'Existing commits not sufficient for release threshold.'
+        );
+        return
+    }
     if (!isReleaseBranch && !isPreReleaseBranch) {
         core.info(
             'This branch is neither a release nor a pre-release branch. Skipping the tag creation.'
