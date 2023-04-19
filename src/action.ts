@@ -123,7 +123,6 @@ export default async function main() {
 
         commits = await getCommits(previousTag.commit.sha, commitRef);
 
-        core.info(`Commit size is ${commits.length}`)
         let bump = await analyzeCommits(
             {
                 releaseRules: mappedReleaseRules
@@ -213,6 +212,8 @@ export default async function main() {
             nextRelease: {gitTag: newTag, version: newVersion},
         }
     );
+
+    core.info(`Commit size is ${changelog.length}`)
     core.info(`Changelog is ${changelog}.`);
     core.setOutput('changelog', changelog);
 
