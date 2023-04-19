@@ -217,7 +217,7 @@ export default async function main() {
     core.info(`Changelog is ${changelog}.`);
     core.setOutput('changelog', changelog);
 
-    if (commits.length <= 3 && changelog.length <= 95) {
+    if (commits.length < 1 && changelog.length <= 95) {
         core.info(
             'Existing commits not sufficient for release threshold.'
         );
