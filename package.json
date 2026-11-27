@@ -7,7 +7,10 @@
   "scripts": {
     "build": "tsc && pnpm run package",
     "test": "jest --testTimeout 10000",
-    "check": "prettier --check .",
+    "check:lint": "prettier --check .",
+    "check:fix": "prettier --write .",
+    "check:types": "tsc --noEmit",
+    "check": "pnpm run check:lint && pnpm run check:types",
     "package": "ncc build lib/main.js -o dist --no-cache --source-map --license licenses.txt"
   },
   "repository": {
