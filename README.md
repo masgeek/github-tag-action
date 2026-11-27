@@ -61,6 +61,16 @@ jobs:
     1. `hotfix:patch,pre-feat:preminor`,
     2. `bug:patch:Bug Fixes,chore:patch:Chores`
 
+#### Gitmoji & extended release rules (no AI, fully deterministic)
+
+- **gitmoji** _(optional)_ - Understand gitmoji-prefixed conventional commits (default: `true`). A leading emoji or `:shortcode:` is stripped from the header (`✨ feat(cli): add x` is read as `feat(cli): add x`), and a leading 💥 / `:boom:` or `type(scope)!:` is treated as breaking: the `!` is removed and a `BREAKING CHANGE: <description>` footer is appended when none exists. Both the bump analysis and the changelog see the normalized message.
+- **extended_release_rules** _(optional)_ - Enable extra release rules (default: `false`): `accessibility:minor`, `removal:minor`, `security:patch`, `refactor:patch`, `build:patch`. They are merged under `custom_release_rules`, which win for the same type. `docs`, `test`, `ci`, `style` and `chore` stay non-releasing, so `default_bump: false` skips them. Changelog sections `Security`, `Accessibility` and `Removed` are included.
+
+#### GitHub Release
+
+- **create_release** _(optional)_ - Create a GitHub Release after the tag is created, with the generated changelog as body. `prerelease` is set on pre-release branches. Skipped on dry run (default: `false`). The workflow needs `contents: write`.
+- **release_draft** _(optional)_ - Create the release as a draft (default: `false`).
+
 #### Debugging
 
 - **dry_run** _(optional)_ - Do not perform tagging, just calculate next version and changelog, then exit
@@ -73,6 +83,8 @@ jobs:
 - **previous_version** - The value of the previous tag (or `0.0.0` if none) without the prefix. Note that if `custom_tag` is set, this will be `undefined`.
 - **release_type** - The computed release type (`major`, `minor`, `patch` or `custom` - can be prefixed with `pre`).
 - **changelog** - The [conventional changelog](https://github.com/conventional-changelog/conventional-changelog) since the previous tag.
+- **breaking** - `true` when the release type is major or a breaking-change commit was seen, otherwise `false`.
+- **released** - `true` only when a tag was actually created (`false` for dry runs, skipped releases and existing tags).
 
 > **_Note:_** This action creates a [lightweight tag](https://developer.github.com/v3/git/refs/#create-a-reference) by default.
 

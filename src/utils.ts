@@ -5,6 +5,7 @@ import DEFAULT_RELEASE_TYPES from '@semantic-release/commit-analyzer/lib/default
 import { compareCommits, listTags } from './github';
 import { defaultChangelogRules } from './defaults';
 import { Await } from './ts';
+import { normalizeCommitMessage } from './commit-parser';
 
 type Tags = Await<ReturnType<typeof listTags>>;
 
@@ -37,14 +38,17 @@ export async function getValidTags(
 
 export async function getCommits(
   baseRef: string,
-  headRef: string
+  headRef: string,
+  normalize = true
 ): Promise<{ message: string; hash: string | null }[]> {
   const commits = await compareCommits(baseRef, headRef);
 
   return commits
     .filter((commit) => !!commit.commit.message)
     .map((commit) => ({
-      message: commit.commit.message,
+      message: normalize
+        ? normalizeCommitMessage(commit.commit.message)
+        : commit.commit.message,
       hash: commit.sha,
     }));
 }
@@ -142,4 +146,33 @@ export function mergeWithDefaultChangelogRules(
   );
 
   return Object.values(mergedRules).filter((rule) => !!rule.section);
+}
+
+/**
+ * Release rules enabled by `extended_release_rules`, in the
+ * `<type>:<release>` format accepted by `custom_release_rules`.
+ */
+export const EXTENDED_RELEASE_RULES =
+  'accessibility:minor,removal:minor,security:patch,refactor:patch,build:patch';
+
+/**
+ * Merge extended rules (optional) under user supplied custom rules:
+ * a custom rule for the same type wins.
+ */
+export function buildReleaseRules(
+  customReleaseRules: string,
+  extendedReleaseRules: boolean
+) {
+  const extended = extendedReleaseRules
+    ? mapCustomReleaseRules(EXTENDED_RELEASE_RULES)
+    : [];
+  const custom = customReleaseRules
+    ? mapCustomReleaseRules(customReleaseRules)
+    : [];
+  if (!extended.length && !custom.length) {
+    return undefined;
+  }
+  const merged = new Map<string, ReturnType<typeof mapCustomReleaseRules>[0]>();
+  [...extended, ...custom].forEach((rule) => merged.set(rule.type, rule));
+  return Array.from(merged.values());
 }

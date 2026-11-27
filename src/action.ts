@@ -9,10 +9,11 @@ import {
     getLatestPrereleaseTag,
     getLatestTag,
     getValidTags,
-    mapCustomReleaseRules,
+    buildReleaseRules,
     mergeWithDefaultChangelogRules,
 } from './utils';
-import {createTag} from './github';
+import {createRelease, createTag} from './github';
+import {hasBreakingFooter} from './commit-parser';
 import {Await} from './ts';
 
 export default async function main() {
@@ -32,11 +33,19 @@ export default async function main() {
     const customReleaseRules = core.getInput('custom_release_rules');
     const shouldFetchAllTags = core.getInput('fetch_all_tags');
     const commitSha = core.getInput('commit_sha');
+    const gitmoji = !/false/i.test(core.getInput('gitmoji'));
+    const extendedReleaseRules = /true/i.test(
+        core.getInput('extended_release_rules')
+    );
+    const createGithubRelease = /true/i.test(core.getInput('create_release'));
+    const releaseDraft = /true/i.test(core.getInput('release_draft'));
 
-    let mappedReleaseRules;
-    if (customReleaseRules) {
-        mappedReleaseRules = mapCustomReleaseRules(customReleaseRules);
-    }
+    core.setOutput('released', 'false');
+
+    const mappedReleaseRules = buildReleaseRules(
+        customReleaseRules,
+        extendedReleaseRules
+    );
 
     const {GITHUB_REF, GITHUB_SHA} = process.env;
 
@@ -85,9 +94,13 @@ export default async function main() {
     let newVersion: string;
 
     if (customTag) {
-        commits = await getCommits(latestTag.commit.sha, commitRef);
+        commits = await getCommits(latestTag.commit.sha, commitRef, gitmoji);
 
         core.setOutput('release_type', 'custom');
+        core.setOutput(
+            'breaking',
+            String(commits.some((commit) => hasBreakingFooter(commit.message)))
+        );
         newVersion = customTag;
     } else {
         let previousTag: ReturnType<typeof getLatestTag> | null;
@@ -121,7 +134,7 @@ export default async function main() {
         core.setOutput('previous_version', previousVersion.version);
         core.setOutput('previous_tag', previousTag.name);
 
-        commits = await getCommits(previousTag.commit.sha, commitRef);
+        commits = await getCommits(previousTag.commit.sha, commitRef, gitmoji);
 
         let bump = await analyzeCommits(
             {
@@ -168,6 +181,13 @@ export default async function main() {
             ? `pre${bump}`
             : bump || defaultBump;
         core.setOutput('release_type', releaseType);
+        core.setOutput(
+            'breaking',
+            String(
+                /major$/.test(releaseType) ||
+                commits.some((commit) => hasBreakingFooter(commit.message))
+            )
+        );
 
         const incrementedVersion = inc(previousVersion, releaseType, identifier);
 
@@ -184,8 +204,11 @@ export default async function main() {
         newVersion = incrementedVersion;
     }
 
-    let cleanVersion = newVersion.split("-");
-    newVersion = cleanVersion[0]
+    // WIP on `release` stripped the prerelease suffix from every version, which turned
+    // prerelease tags (v1.2.3-beta.0) into plain releases. Only strip for non-prerelease runs.
+    if (!isPrerelease) {
+        newVersion = newVersion.split("-")[0];
+    }
     core.info(`New version is ${newVersion}.`);
 
 
@@ -241,4 +264,9 @@ export default async function main() {
     }
 
     await createTag(newTag, createAnnotatedTag, commitRef);
+    core.setOutput('released', 'true');
+
+    if (createGithubRelease) {
+        await createRelease(newTag, changelog, isPrerelease, releaseDraft);
+    }
 }

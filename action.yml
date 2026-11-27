@@ -12,6 +12,10 @@ outputs:
     description: "The computed release type (`major`, `minor`, `patch` or `custom` - can be prefixed with `pre`)"
   changelog:
     description: "The conventional changelog since the previous tag"
+  breaking:
+    description: "`true` when the release is major or a breaking change commit was found"
+  released:
+    description: "`true` only when a tag was actually created (`false` on dry run, skipped or existing tags)"
 inputs:
   github_token:
     description: "Required for permission to tag the repo."
@@ -57,6 +61,22 @@ inputs:
     default: "false"
   dry_run:
     description: "Do not perform tagging, just calculate next version and changelog, then exit."
+    required: false
+    default: "false"
+  gitmoji:
+    description: "Understand gitmoji prefixed conventional commits (`✨ feat(cli): add x`, `💥 feat!: drop y`) by stripping the emoji/shortcode and converting `!` / 💥 into a `BREAKING CHANGE` footer."
+    required: false
+    default: "true"
+  extended_release_rules:
+    description: "Enable extra release rules: `accessibility:minor,removal:minor,security:patch,refactor:patch,build:patch`. `custom_release_rules` take precedence."
+    required: false
+    default: "false"
+  create_release:
+    description: "Create a GitHub Release (body = changelog) after the tag is created. Skipped on dry run."
+    required: false
+    default: "false"
+  release_draft:
+    description: "Create the GitHub Release as a draft (only with `create_release`)."
     required: false
     default: "false"
 

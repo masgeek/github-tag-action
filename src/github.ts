@@ -92,3 +92,21 @@ export async function createTag(
     sha: annotatedTag ? annotatedTag.data.sha : GITHUB_SHA,
   });
 }
+
+export async function createRelease(
+  tag: string,
+  body: string,
+  prerelease: boolean,
+  draft: boolean
+) {
+  const octokit = getOctokitSingleton();
+  core.debug(`Creating GitHub release for ${tag}.`);
+  await octokit.repos.createRelease({
+    ...context.repo,
+    tag_name: tag,
+    name: tag,
+    body,
+    prerelease,
+    draft,
+  });
+}
