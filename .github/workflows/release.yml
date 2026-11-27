@@ -6,6 +6,16 @@ on:
   push:
     branches:
       - release
+    # Only code that ends up in the action triggers a release. Docs, tests and
+    # workflow-only changes are picked up in the changelog of the next release.
+    paths:
+      - 'src/**'
+      - 'types/**'
+      - 'action.yml'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'tsconfig.json'
 
 # Never run two releases at once (they would race on tags).
 concurrency:
