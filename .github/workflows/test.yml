@@ -10,7 +10,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - run: npm ci
-      - run: npm run test
-      - run: npm run check
-      - run: npm run build
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test
+      - run: pnpm run check
+      - run: pnpm run build
+      - name: Check dist/ is up to date
+        run: git diff --exit-code --ignore-space-at-eol -- dist
