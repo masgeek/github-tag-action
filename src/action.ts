@@ -69,6 +69,7 @@ export default async function main() {
         .some((branch) => currentBranch.match(branch));
     const isPreReleaseBranch = preReleaseBranches
         .split(',')
+        .filter(Boolean) // an empty input must not match every branch
         .some((branch) => currentBranch.match(branch));
     const isPullRequest = isPr(GITHUB_REF);
     const isPrerelease = !isReleaseBranch && !isPullRequest && isPreReleaseBranch;
@@ -207,11 +208,9 @@ export default async function main() {
         newVersion = incrementedVersion;
     }
 
-    // WIP on `release` stripped the prerelease suffix from every version, which turned
-    // prerelease tags (v1.2.3-beta.0) into plain releases. Only strip for non-prerelease runs.
-    if (!isPrerelease) {
-        newVersion = newVersion.split("-")[0];
-    }
+    // Always drop the prerelease suffix: develop/prerelease branches produce the plain
+    // version (2.0.0), never 2.0.0-develop.0.
+    newVersion = newVersion.split('-')[0];
     core.info(`New version is ${newVersion}.`);
 
 
