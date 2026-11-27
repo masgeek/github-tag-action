@@ -1,45 +1,18 @@
 # How to publish a new version of the action
 
-## Publish to a distribution branch
-
-Actions are run from GitHub repos. We will create a releases branch and only checkin production modules (core in this case).
-
-Comment out node_modules in .gitignore and create a releases/v1 branch
+The action runs from a single ncc bundle in `dist/` (`action.yml` -> `dist/index.js`).
+`node_modules/` and `lib/` are **not** committed.
 
 ```bash
-# comment out in distribution branches
-# node_modules/
-# lib/
+pnpm install
+pnpm test
+pnpm run build   # tsc -> lib/, then ncc -> dist/ (commit dist/)
+git add dist
+git commit -m "build: rebuild dist"
+git tag -a 2.1.0 -m "2.1.0"   # no `v` prefix
+git push origin release 2.1.0
 ```
 
-```bash
-$ git checkout -b releases/v1
-$ npm install
-$ npm run build
-$ npm prune --production
-$ git add .
-$ git commit -a -m "prod dependencies"
-$ git push
-```
+CI fails when `dist/` is out of date, so always rebuild before committing source changes.
 
-Your action is now published! :rocket:
-
-See the [versioning documentation](https://github.com/actions/toolkit/blob/master/docs/action-versioning.md)
-
-## Validate
-
-You can now validate the action by referencing the releases/v1 branch
-
-```yaml
-uses: mathieudutour/github-tag-action@releases/v1
-```
-
-See the [actions tab](https://github.com/actions/javascript-action/actions) for runs of this action! :rocket:
-
-## Create a tag
-
-After testing you can [create a tag](https://github.com/actions/toolkit/blob/master/docs/action-versioning.md) to reference the stable and tested action
-
-```yaml
-uses: mathieudutour/github-tag-action@v1
-```
+Reference the action by tag, e.g. `uses: masgeek/github-tag-action@2.1.0`.
