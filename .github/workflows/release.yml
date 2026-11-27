@@ -66,7 +66,7 @@ jobs:
             echo "release=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Tag a commit that contains dist/ and move the major tag
+      - name: Tag a commit that contains dist/ and move the major and latest tags
         if: steps.guard.outputs.release == 'true'
         env:
           TAG: ${{ steps.next.outputs.new_tag }}
@@ -80,8 +80,9 @@ jobs:
           git commit -m "build: dist for $TAG"
           git tag -a "$TAG" -m "$TAG"
           git tag -fa "$MAJOR" -m "$MAJOR"
+          git tag -fa latest -m latest
           git push origin "refs/tags/$TAG"
-          git push --force origin "refs/tags/$MAJOR"
+          git push --force origin "refs/tags/$MAJOR" "refs/tags/latest"
 
       - name: Create the GitHub Release
         if: steps.guard.outputs.release == 'true'
