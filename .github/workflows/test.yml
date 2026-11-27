@@ -3,12 +3,7 @@ name: "Test"
 # Pull requests are tested here; pushes to release are tested and released by release.yml.
 on:
   pull_request:
-    branches:
-      - develop
-      - release
   push:
-    branches:
-      - develop
 
 permissions:
   contents: read
