@@ -31,7 +31,7 @@ const mockSetFailed = jest.spyOn(core, 'setFailed');
 describe('github-tag-action', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    setBranch('master');
+    setBranch('main');
     setCommitSha('79e0ea271c26aa152beef77c3275ff7b8f8d8274');
     loadDefaultInputs();
   });
@@ -516,7 +516,7 @@ describe('github-tag-action', () => {
        * Then
        */
       expect(mockCreateTag).toHaveBeenCalledWith(
-        'v1.2.4-prerelease.0',
+        'v1.2.4',
         expect.any(Boolean),
         expect.any(String)
       );
@@ -554,7 +554,7 @@ describe('github-tag-action', () => {
        * Then
        */
       expect(mockCreateTag).toHaveBeenCalledWith(
-        'v1.2.4-prerelease.0',
+        'v1.2.4',
         expect.any(Boolean),
         expect.any(String)
       );
@@ -594,7 +594,7 @@ describe('github-tag-action', () => {
        * Then
        */
       expect(mockCreateTag).toHaveBeenCalledWith(
-        'v1.3.0-prerelease.0',
+        'v1.3.0',
         expect.any(Boolean),
         expect.any(String)
       );
@@ -638,7 +638,7 @@ describe('github-tag-action', () => {
        * Then
        */
       expect(mockCreateTag).toHaveBeenCalledWith(
-        'v2.0.0-prerelease.0',
+        'v2.0.0',
         expect.any(Boolean),
         expect.any(String)
       );
@@ -695,7 +695,7 @@ describe('github-tag-action', () => {
        * Then
        */
       expect(mockCreateTag).toHaveBeenCalledWith(
-        'v2.2.0-prerelease.0',
+        'v2.2.0',
         expect.any(Boolean),
         expect.any(String)
       );
@@ -740,7 +740,7 @@ describe('github-tag-action', () => {
        * Then
        */
       expect(mockCreateTag).toHaveBeenCalledWith(
-        'v1.3.0-prerelease.0',
+        'v1.3.0',
         expect.any(Boolean),
         expect.any(String)
       );

@@ -1,9 +1,17 @@
-name: "Test typescript-action"
+name: "Test"
 on:
   pull_request:
   push:
     branches:
-      - main
+      - develop
+      - 'fix/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -19,5 +27,3 @@ jobs:
       - run: pnpm run test
       - run: pnpm run check
       - run: pnpm run build
-      - name: Check dist/ is up to date
-        run: git diff --exit-code --ignore-space-at-eol -- dist

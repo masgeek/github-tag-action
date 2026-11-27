@@ -32,9 +32,9 @@ describe('commit-parser', () => {
   });
 
   it('turns a leading 💥 into a BREAKING CHANGE footer', () => {
-    expect(normalizeCommitMessage('💥 feat(api)!: drop y\n\nbody text')).toEqual(
-      'feat(api): drop y\n\nbody text\n\nBREAKING CHANGE: drop y'
-    );
+    expect(
+      normalizeCommitMessage('💥 feat(api)!: drop y\n\nbody text')
+    ).toEqual('feat(api): drop y\n\nbody text\n\nBREAKING CHANGE: drop y');
     expect(normalizeCommitMessage('💥 refactor: rewrite')).toEqual(
       'refactor: rewrite\n\nBREAKING CHANGE: rewrite'
     );
@@ -51,9 +51,9 @@ describe('commit-parser', () => {
   });
 
   it('keeps footers of non-breaking commits and handles CRLF', () => {
-    expect(normalizeCommitMessage('✨ feat: a\r\n\r\nBREAKING-CHANGE: b')).toEqual(
-      'feat: a\n\nBREAKING-CHANGE: b'
-    );
+    expect(
+      normalizeCommitMessage('✨ feat: a\r\n\r\nBREAKING-CHANGE: b')
+    ).toEqual('feat: a\n\nBREAKING-CHANGE: b');
   });
 
   it('passes through non conventional messages', () => {
@@ -69,8 +69,8 @@ describe('commit-parser', () => {
   });
 
   it('normalizes a list and keeps other fields', () => {
-    expect(
-      normalizeCommits([{ message: '✨ feat: a', hash: 'abc' }])
-    ).toEqual([{ message: 'feat: a', hash: 'abc' }]);
+    expect(normalizeCommits([{ message: '✨ feat: a', hash: 'abc' }])).toEqual([
+      { message: 'feat: a', hash: 'abc' },
+    ]);
   });
 });

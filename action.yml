@@ -44,10 +44,11 @@ inputs:
   release_branches:
     description: "Comma separated list of branches (bash reg exp accepted) that will generate the release tags. Other branches and pull-requests generate versions postfixed with the commit hash and do not generate any tag. Examples: `master` or `.*` or `release.*,hotfix.*,master`..."
     required: false
-    default: "master,main"
+    default: "main"
   pre_release_branches:
-    description: "Comma separated list of branches (bash reg exp accepted) that will generate pre-release tags."
+    description: "Comma separated list of branches (bash reg exp accepted) that will generate pre-release tags (default: `develop`)."
     required: false
+    default: "develop"
   commit_sha:
     description: "The commit SHA value to add the tag. If specified, it uses this value instead GITHUB_SHA. It could be useful when a previous step merged a branch into github.ref."
     required: false

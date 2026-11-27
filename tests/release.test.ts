@@ -51,7 +51,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  setBranch('master');
+  setBranch('main');
   setCommitSha('79e0ea271c26aa152beef77c3275ff7b8f8d8274');
   loadDefaultInputs();
 });
