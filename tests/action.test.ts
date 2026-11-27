@@ -67,7 +67,7 @@ describe('github-tag-action', () => {
       expect(mockSetFailed).not.toBeCalled();
     });
 
-    it('does create patch tag without commits', async () => {
+    it('does not create a tag without commits (release branch threshold)', async () => {
       /*
        * Given
        */
@@ -89,11 +89,7 @@ describe('github-tag-action', () => {
       /*
        * Then
        */
-      expect(mockCreateTag).toHaveBeenCalledWith(
-        'v0.0.1',
-        expect.any(Boolean),
-        expect.any(String)
-      );
+      expect(mockCreateTag).not.toBeCalled();
       expect(mockSetFailed).not.toBeCalled();
     });
 
