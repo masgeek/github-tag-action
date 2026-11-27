@@ -1,144 +1,292 @@
 # GitHub Tag Action
 
-A GitHub Action to automatically bump and tag master, on merge, with the latest SemVer formatted version. Works on any platform.
+A GitHub Action that bumps and pushes a SemVer git tag on merge, generates a changelog, and can create the GitHub Release. Fully deterministic: no AI, no external tools to install. Works on any runner (Node 24 runtime, single bundled `dist/index.js`).
 
-## Usage
+It understands plain [Conventional Commits](https://www.conventionalcommits.org) and the **gitmoji conventional commits** style (`✨ feat(cli): add x`, `💥 feat(api)!: drop y`).
+
+- [Quick start](#quick-start)
+- [Inputs](#-inputs)
+- [Outputs](#-outputs)
+- [How the version is chosen](#how-the-version-is-chosen)
+- [Examples](#examples)
+- [Troubleshooting](#troubleshooting)
+- [Development](#development)
+
+## Quick start
 
 ```yaml
-name: Bump version
+name: Release
 on:
   push:
-    branches:
-      - master
+    branches: [main]
+
+permissions:
+  contents: write # create tags and releases
+
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Bump version and push tag
-        id: tag_version
-        uses: mathieudutour/github-tag-action@v6.1
+      - uses: actions/checkout@v7
+      - name: Bump version, tag and release
+        id: tag
+        uses: masgeek/github-tag-action@2.0.0 # pin to a tag of this repo
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Create a GitHub release
-        uses: ncipollo/release-action@v1
+          tag_prefix: ""            # tags like 1.2.3 (default is v1.2.3)
+          create_release: true      # also create the GitHub Release
+      - run: echo "Released ${{ steps.tag.outputs.new_tag }}"
+        if: steps.tag.outputs.released == 'true'
+```
+
+Notes:
+
+- Tags of this action have **no `v` prefix** (`2.0.0`, not `v2.0.0`).
+- `actions/checkout` is only needed if later steps use the repo; the action itself talks to the GitHub API.
+- The default `GITHUB_TOKEN` needs `contents: write`.
+- By default only `main` produces release tags and `develop` produces pre-release runs (see [`release_branches`](#filter-branches)); set `release_branches: "main,master"` to include `master`.
+
+## 📥 Inputs
+
+| Input | Default | Description |
+|---|---|---|
+| `github_token` | _(required)_ | Token used to read tags/commits and create the tag and release. Usually `${{ secrets.GITHUB_TOKEN }}`. |
+| `commit_sha` | `GITHUB_SHA` | Commit to tag. Use it when a previous step merged a branch into `github.ref`. |
+| `fetch_all_tags` | `false` | Fetch every tag instead of the last 100. Turn on for repos with more than 100 tags. |
+| `release_branches` | `main` | Comma separated branches (JavaScript regex accepted) that create tags. Other branches and pull requests never create a tag. |
+| `pre_release_branches` | `develop` | Comma separated branches (regex) treated as pre-release branches. To disable, set it to a branch name that does not exist. |
+| `default_bump` | `patch` | Bump used when no commit calls for one: `patch`, `minor`, `major`, or `false` to skip the release. |
+| `default_prerelease_bump` | `prerelease` | Same as `default_bump` for pre-release branches: `prerelease`, `prepatch`, `preminor`, `premajor` or `false`. |
+| `tag_prefix` | `v` | Prefix of the tag name. Use `""` for no prefix. |
+| `custom_tag` | _(none)_ | Use this exact tag and skip bump calculation. |
+| `append_to_pre_release_tag` | `<branch>` | Identifier used when matching pre-release tags. |
+| `create_annotated_tag` | `false` | Create an annotated tag instead of a lightweight one. |
+| `custom_release_rules` | _(none)_ | Extra rules `<type>:<release>[:<changelog section>]`, comma separated. |
+| `gitmoji` | `true` | Understand gitmoji-prefixed and `type!:` commits. |
+| `extended_release_rules` | `false` | Enable the extra rules `accessibility`, `removal`, `security`, `refactor`, `build`. |
+| `create_release` | `false` | Create a GitHub Release (body = changelog) after the tag exists. |
+| `release_draft` | `false` | Create that release as a draft. |
+| `dry_run` | `false` | Compute version and changelog only; create nothing. |
+
+### Filter branches
+
+`release_branches` and `pre_release_branches` are JavaScript regular expressions matched against the branch name (`release.*,hotfix.*,main`, `.*`, …). A branch matching neither list never creates a tag, so the action is safe to run on pull requests.
+
+### Customize the tag
+
+- **`default_bump: false`** skips the run when no commit triggers a release. Combine it with the [extended rules](#gitmoji--extended-release-rules) so `docs`, `test`, `ci`, `style` and `chore` commits do not release.
+- **`custom_tag`** overrides everything; `release_type` is then `custom`.
+- **`create_annotated_tag: true`** creates a tag object (message = tag name) instead of a bare ref.
+- **Pre-release branches** compute the same plain version as release branches (for example `2.0.0`); the pre-release suffix is never added to the tag. If the tag already exists the run is skipped.
+
+### Custom release rules
+
+`custom_release_rules` is a comma separated list of `<type>:<release>` or `<type>:<release>:<changelog section>`.
+
+```yaml
+with:
+  custom_release_rules: "hotfix:patch:Hotfixes,pre-feat:preminor,chore:patch:Chores"
+```
+
+- `<release>` is `major`, `minor`, `patch` (or `premajor`/`preminor`/`prepatch` for pre-release branches).
+- Without a section, the [Angular default section](https://github.com/conventional-changelog/conventional-changelog/tree/master/packages/conventional-changelog-angular) is used; a type with no section is omitted from the changelog.
+- Custom rules win over the extended rules for the same type.
+
+### Gitmoji & extended release rules
+
+**`gitmoji`** (default `true`) normalizes commits before analysis, so the bump and the changelog both see clean conventional messages:
+
+| Commit | Read as | Release |
+|---|---|---|
+| `✨ feat(cli): add x` | `feat(cli): add x` | minor |
+| `:bug: fix: y` | `fix: y` | patch |
+| `💥 feat(api)!: drop y` | `feat(api): drop y` + `BREAKING CHANGE: drop y` | major |
+| `fix(api)!: drop y` | `fix(api): drop y` + `BREAKING CHANGE: drop y` | major |
+| `feat: x` with a `BREAKING CHANGE:` footer | unchanged | major |
+| `📝 docs: update readme` | `docs: update readme` | none |
+
+A leading emoji or `:shortcode:` is stripped; a leading `💥`/`:boom:` or `!` marks the commit breaking and adds the footer if missing. Set `gitmoji: false` to use the raw messages.
+
+**`extended_release_rules`** (default `false`) adds these rules (merged under `custom_release_rules`):
+
+| Type | Release | Changelog section |
+|---|---|---|
+| `accessibility` | minor | Accessibility |
+| `removal` | minor | Removed |
+| `security` | patch | Security |
+| `refactor` | patch | Code Refactoring |
+| `build` | patch | Build Systems |
+
+`feat` is minor, `fix`/`perf`/`revert` are patch, breaking is major. `docs`, `test`, `ci`, `style` and `chore` never release on their own.
+
+### GitHub Release
+
+With `create_release: true` the action calls the GitHub API after the tag is created (the tag must exist first, which also works with immutable releases):
+
+- name and tag = the new tag, body = the generated changelog;
+- `prerelease` is `true` on pre-release branches;
+- `release_draft: true` creates a draft;
+- skipped on `dry_run`, when the tag already exists, or when no tag is created.
+
+This replaces a separate `ncipollo/release-action` step.
+
+## 📤 Outputs
+
+| Output | Description |
+|---|---|
+| `new_tag` | New tag including the prefix. |
+| `new_version` | New version without the prefix. |
+| `previous_tag` | Previous tag (or `<prefix>0.0.0` if none). Unset with `custom_tag`. |
+| `previous_version` | Previous version without the prefix. Unset with `custom_tag`. |
+| `release_type` | `major`, `minor`, `patch` or `custom` (can be prefixed with `pre`). |
+| `changelog` | Conventional changelog (Markdown) since the previous tag. |
+| `breaking` | `true` for a major release or when a breaking-change commit was seen. |
+| `released` | `true` only when a tag was actually created (`false` for dry runs, skips and existing tags). |
+
+Outputs such as `new_tag` are also set on a dry run, but `released` stays `false`.
+
+## How the version is chosen
+
+1. Find the latest valid SemVer tag matching `tag_prefix` (or `<prefix>0.0.0`).
+2. Take the commits between that tag and `commit_sha`.
+3. Normalize them (gitmoji), then pick the highest release type from the rules.
+4. If no rule matches, use `default_bump` (`false` = skip).
+5. Increment the version, skip if that tag already exists, otherwise create it.
+
+Examples with the defaults (`gitmoji: true`, `extended_release_rules: false`):
+
+| Commit message | Release |
+|---|---|
+| `fix(pencil): stop graphite breaking when too much pressure applied` | patch |
+| `feat(pencil): add 'graphiteWidth' option` | minor |
+| `perf(pencil): remove graphiteWidth option` + footer `BREAKING CHANGE: ...` | major |
+| `💥 feat(pencil)!: remove graphiteWidth option` | major |
+| `docs: update readme` | `default_bump` |
+
+## Examples
+
+### Skip releases for docs/chore only (recommended with gitmoji)
+
+```yaml
+- uses: masgeek/github-tag-action@2.0.0
+  with:
+    github_token: ${{ secrets.GITHUB_TOKEN }}
+    tag_prefix: ""
+    default_bump: false          # nothing to release => no tag
+    extended_release_rules: true
+    create_release: true
+```
+
+### Dry run: preview the next version in a pull request
+
+```yaml
+on: pull_request
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - id: tag
+        uses: masgeek/github-tag-action@2.0.0
         with:
-          tag: ${{ steps.tag_version.outputs.new_tag }}
-          name: Release ${{ steps.tag_version.outputs.new_tag }}
-          body: ${{ steps.tag_version.outputs.changelog }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          dry_run: true
+          release_branches: ".*"   # let the PR branch compute a version
+      - run: |
+          echo "Next: ${{ steps.tag.outputs.new_tag }} (${{ steps.tag.outputs.release_type }})"
+          echo "Breaking: ${{ steps.tag.outputs.breaking }}"
 ```
 
-### 📥 Inputs
+### Annotated tags and a draft release
 
-- **github_token** _(required)_ - Required for permission to tag the repo. Usually `${{ secrets.GITHUB_TOKEN }}`.
-- **commit_sha** _(optional)_ - The commit SHA value to add the tag. If specified, it uses this value instead GITHUB_SHA. It could be useful when a previous step merged a branch into github.ref.
-
-#### Fetch all tags
-
-- **fetch_all_tags** _(optional)_ - By default, this action fetch the last 100 tags from Github. Sometimes, this is not enough and using this action will fetch all tags recursively (default: `false`).
-
-#### Filter branches
-
-- **release_branches** _(optional)_ - Comma separated list of branches (JavaScript regular expression accepted) that will generate the release tags. Other branches and pull-requests generate versions postfixed with the commit hash and do not generate any repository tag. Examples: `master` or `.*` or `release.*,hotfix.*,master`... (default: `master,main`).
-- **pre_release_branches** _(optional)_ - Comma separated list of branches (JavaScript regular expression accepted) that will generate the pre-release tags.
-
-#### Customize the tag
-
-- **default_bump** _(optional)_ - Which type of bump to use when [none is explicitly provided](#bumping) when commiting to a release branch (default: `patch`). You can also set `false` to avoid generating a new tag when none is explicitly provided. Can be `patch, minor or major`.
-- **default_prerelease_bump** _(optional)_ - Which type of bump to use when [none is explicitly provided](#bumping) when commiting to a prerelease branch (default: `prerelease`). You can also set `false` to avoid generating a new tag when none is explicitly provided. Can be `prerelease, prepatch, preminor or premajor`.
-- **custom_tag** _(optional)_ - Custom tag name. If specified, it overrides bump settings.
-- **create_annotated_tag** _(optional)_ - Boolean to create an annotated rather than a lightweight one (default: `false`).
-- **tag_prefix** _(optional)_ - A prefix to the tag name (default: `v`).
-- **append_to_pre_release_tag** _(optional)_ - A suffix to the pre-release tag name (default: `<branch>`).
-
-#### Customize the conventional commit messages & titles of changelog sections
-
-- **custom_release_rules** _(optional)_ - Comma separated list of release rules.
-
-  __Format__: `<keyword>:<release_type>:<changelog_section>` where `<changelog_section>` is optional and will default to [Angular's conventions](https://github.com/conventional-changelog/conventional-changelog/tree/master/packages/conventional-changelog-angular).
-
-  __Examples__:
-    1. `hotfix:patch,pre-feat:preminor`,
-    2. `bug:patch:Bug Fixes,chore:patch:Chores`
-
-#### Gitmoji & extended release rules (no AI, fully deterministic)
-
-- **gitmoji** _(optional)_ - Understand gitmoji-prefixed conventional commits (default: `true`). A leading emoji or `:shortcode:` is stripped from the header (`✨ feat(cli): add x` is read as `feat(cli): add x`), and a leading 💥 / `:boom:` or `type(scope)!:` is treated as breaking: the `!` is removed and a `BREAKING CHANGE: <description>` footer is appended when none exists. Both the bump analysis and the changelog see the normalized message.
-- **extended_release_rules** _(optional)_ - Enable extra release rules (default: `false`): `accessibility:minor`, `removal:minor`, `security:patch`, `refactor:patch`, `build:patch`. They are merged under `custom_release_rules`, which win for the same type. `docs`, `test`, `ci`, `style` and `chore` stay non-releasing, so `default_bump: false` skips them. Changelog sections `Security`, `Accessibility` and `Removed` are included.
-
-#### GitHub Release
-
-- **create_release** _(optional)_ - Create a GitHub Release after the tag is created, with the generated changelog as body. `prerelease` is set on pre-release branches. Skipped on dry run (default: `false`). The workflow needs `contents: write`.
-- **release_draft** _(optional)_ - Create the release as a draft (default: `false`).
-
-#### Debugging
-
-- **dry_run** _(optional)_ - Do not perform tagging, just calculate next version and changelog, then exit
-
-### 📤 Outputs
-
-- **new_tag** - The value of the newly calculated tag. Note that if there hasn't been any new commit, this will be `undefined`.
-- **new_version** - The value of the newly created tag without the prefix. Note that if there hasn't been any new commit, this will be `undefined`.
-- **previous_tag** - The value of the previous tag (or `v0.0.0` if none). Note that if `custom_tag` is set, this will be `undefined`.
-- **previous_version** - The value of the previous tag (or `0.0.0` if none) without the prefix. Note that if `custom_tag` is set, this will be `undefined`.
-- **release_type** - The computed release type (`major`, `minor`, `patch` or `custom` - can be prefixed with `pre`).
-- **changelog** - The [conventional changelog](https://github.com/conventional-changelog/conventional-changelog) since the previous tag.
-- **breaking** - `true` when the release type is major or a breaking-change commit was seen, otherwise `false`.
-- **released** - `true` only when a tag was actually created (`false` for dry runs, skipped releases and existing tags).
-
-> **_Note:_** This action creates a [lightweight tag](https://developer.github.com/v3/git/refs/#create-a-reference) by default.
-
-### Bumping
-
-The action will parse the new commits since the last tag using the [semantic-release](https://github.com/semantic-release/semantic-release) conventions.
-
-semantic-release uses the commit messages to determine the type of changes in the codebase. Following formalized conventions for commit messages, semantic-release automatically determines the next [semantic version](https://semver.org) number.
-
-By default semantic-release uses [Angular Commit Message Conventions](https://github.com/angular/angular.js/blob/master/DEVELOPERS.md#-git-commit-guidelines).
-
-Here is an example of the release type that will be done based on a commit messages:
-
-<table>
-<tr>
-<td> Commit message </td> <td> Release type </td>
-</tr>
-<tr>
-<td>
-
-```
-fix(pencil): stop graphite breaking when too much pressure applied
+```yaml
+- uses: masgeek/github-tag-action@2.0.0
+  with:
+    github_token: ${{ secrets.GITHUB_TOKEN }}
+    create_annotated_tag: true
+    create_release: true
+    release_draft: true
 ```
 
-</td>
-<td>Patch Release</td>
-</tr>
-<tr>
-<td>
+### Use outputs in later steps (build only when released)
 
-```
-feat(pencil): add 'graphiteWidth' option
-```
-
-</td>
-<td>Minor Release</td>
-</tr>
-<tr>
-<td>
-
-```
-perf(pencil): remove graphiteWidth option
-
-BREAKING CHANGE: The graphiteWidth option has been removed.
-The default graphite width of 10mm is always used for performance reasons.
+```yaml
+- id: tag
+  uses: masgeek/github-tag-action@2.0.0
+  with:
+    github_token: ${{ secrets.GITHUB_TOKEN }}
+- if: steps.tag.outputs.released == 'true'
+  run: ./deploy.sh "${{ steps.tag.outputs.new_version }}"
+- if: steps.tag.outputs.breaking == 'true'
+  run: echo "::warning::Breaking release ${{ steps.tag.outputs.new_tag }}"
 ```
 
-</td>
-<td>Major Release</td>
-</tr>
-</table>
+### Keep using ncipollo/release-action
 
-If no commit message contains any information, then **default_bump** will be used.
+Leave `create_release` off and use the outputs:
+
+```yaml
+- id: tag
+  uses: masgeek/github-tag-action@2.0.0
+  with:
+    github_token: ${{ secrets.GITHUB_TOKEN }}
+- if: steps.tag.outputs.released == 'true'
+  uses: ncipollo/release-action@v1
+  with:
+    tag: ${{ steps.tag.outputs.new_tag }}
+    body: ${{ steps.tag.outputs.changelog }}
+```
+
+### Several release branches and pre-release branches
+
+```yaml
+with:
+  github_token: ${{ secrets.GITHUB_TOKEN }}
+  release_branches: "main,release/.*,hotfix/.*"
+  pre_release_branches: "develop"   # the default
+  default_prerelease_bump: prerelease
+```
+
+On `develop`, `prerelease: true` is set on any created GitHub Release.
+
+### Tag a specific commit or use a fixed tag
+
+```yaml
+with:
+  github_token: ${{ secrets.GITHUB_TOKEN }}
+  commit_sha: ${{ steps.merge.outputs.sha }}   # tag this commit, not GITHUB_SHA
+  # custom_tag: "2024.06.1"                     # or force the tag name
+```
+
+### Large repositories
+
+```yaml
+with:
+  github_token: ${{ secrets.GITHUB_TOKEN }}
+  fetch_all_tags: true   # more than 100 tags
+```
+
+## Troubleshooting
+
+- **`Resource not accessible by integration`**: add `permissions: contents: write` to the job.
+- **`This tag already exists. Skipping`**: the computed version was already tagged; make a commit that bumps (`feat`, `fix`, …) or use `custom_tag`.
+- **`released` is `false` and nothing was tagged**: no commit triggered a release and `default_bump` is `false`, the branch is not in `release_branches`/`pre_release_branches`, it was a dry run, or the tag existed.
+- **Emoji commits not bumping**: keep `gitmoji: true` and use `<emoji> <type>(scope): description`. Types without a rule (for example `security`, `accessibility`, `removal`, `refactor`, `build`) need `extended_release_rules: true` or a custom rule.
+- **Squash merges**: the squash title is the commit message; make sure it follows the same format.
+- **First run**: with no tags the previous version is `<prefix>0.0.0`.
+
+## Development
+
+The repository uses pnpm and ships a single `ncc` bundle in `dist/` (`node_modules/` and `lib/` are not committed).
+
+```bash
+pnpm install
+pnpm test
+pnpm run build      # tsc -> lib/, then ncc -> dist/ (commit dist/)
+```
+
+CI fails when `dist/` is out of date. See [docs/how-to-publish-new-version.md](docs/how-to-publish-new-version.md) for releasing a new version.
 
 ## Credits
 
-[anothrNick/github-tag-action](https://github.com/anothrNick/github-tag-action) - a similar action using a Dockerfile (hence not working on macOS)
+Based on [mathieudutour/github-tag-action](https://github.com/mathieudutour/github-tag-action). See also [anothrNick/github-tag-action](https://github.com/anothrNick/github-tag-action).
