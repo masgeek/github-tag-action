@@ -1,5 +1,14 @@
 # How to publish a new version of the action
 
+## Branch flow
+
+`feature branch` -> pull request into `develop` -> pull request into `release`.
+
+- Pull requests into `develop` and `release` and pushes to `develop` run the tests (`test.yml`).
+- A push (merge) to `release` that changes action code runs `release.yml` and publishes.
+
+## Automated release
+
 Releases are automated by `.github/workflows/release.yml` on every push to `release` (the default branch; `main` is the upstream mirror and is ignored):
 
 1. `pnpm run check`, `pnpm run test` and `pnpm run build` (produces `dist/`, which is git-ignored on branches).
