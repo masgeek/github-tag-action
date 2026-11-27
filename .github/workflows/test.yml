@@ -1,10 +1,9 @@
 name: "Test"
+# Flow: feature branch -> pull request into develop -> pull request into release.
+# Pull requests are tested here; pushes to release are tested and released by release.yml.
 on:
   pull_request:
   push:
-    branches:
-      - develop
-      - 'fix/**'
 
 permissions:
   contents: read
@@ -27,3 +26,48 @@ jobs:
       - run: pnpm run test
       - run: pnpm run check
       - run: pnpm run build
+
+  # After a merge to develop, show what the next release would look like.
+  # dry_run: nothing is tagged or released.
+  preview:
+    if: github.event_name == 'push'
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - name: Preview next release
+        id: next
+        uses: ./
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tag_prefix: ""
+          release_branches: release
+          pre_release_branches: develop
+          default_prerelease_bump: false # no releasable commit => no preview
+          extended_release_rules: true
+          dry_run: true
+      - name: Summary
+        env:
+          TAG: ${{ steps.next.outputs.new_tag }}
+          TYPE: ${{ steps.next.outputs.release_type }}
+          BREAKING: ${{ steps.next.outputs.breaking }}
+          NOTES: ${{ steps.next.outputs.changelog }}
+        run: |
+          {
+            echo "## Next release preview"
+            if [ -z "$TAG" ]; then
+              echo "No releasable commits since the last tag."
+            else
+              echo "- Next tag: \`$TAG\` (\`$TYPE\`)"
+              echo "- Breaking: \`$BREAKING\`"
+              echo
+              echo "$NOTES"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
