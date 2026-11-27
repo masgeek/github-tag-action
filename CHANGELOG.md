@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+_No notable changes._
+
 ## [4.0.0] - 2026-11-27
 
 ### ⚠️ BREAKING CHANGES
