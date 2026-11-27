@@ -15,6 +15,9 @@ import {
 import {createRelease, createTag} from './github';
 import {hasBreakingFooter} from './commit-parser';
 import {Await} from './ts';
+// Imported statically (not via preset: 'conventionalcommits') so the ncc bundle includes it:
+// release-notes-generator would otherwise try to resolve the preset from disk at runtime.
+import conventionalCommitsPreset from 'conventional-changelog-conventionalcommits';
 
 export default async function main() {
     const defaultBump = core.getInput('default_bump') as ReleaseType | 'false';
@@ -218,12 +221,13 @@ export default async function main() {
     core.info(`New tag after applying prefix is ${newTag}.`);
     core.setOutput('new_tag', newTag);
 
+    const preset = await conventionalCommitsPreset({
+        types: mergeWithDefaultChangelogRules(mappedReleaseRules),
+    });
     const changelog = await generateNotes(
         {
-            preset: 'conventionalcommits',
-            presetConfig: {
-                types: mergeWithDefaultChangelogRules(mappedReleaseRules),
-            },
+            parserOpts: preset.parserOpts,
+            writerOpts: preset.writerOpts,
         },
         {
             commits,

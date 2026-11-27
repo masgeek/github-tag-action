@@ -49,3 +49,10 @@ declare module '@semantic-release/release-notes-generator' {
     }
   ): Promise<string>;
 }
+
+declare module 'conventional-changelog-conventionalcommits' {
+  export default function preset(config?: any): Promise<{
+    parserOpts: any;
+    writerOpts: any;
+  }>;
+}
