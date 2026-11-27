@@ -1,0 +1,82 @@
+name: "Release"
+
+# Runs on every push to release (the default branch; main is the upstream mirror and is ignored): test, build, and (when the commits call for it)
+# publish a tag whose commit contains the built dist/ bundle.
+on:
+  push:
+    branches:
+      - release
+
+# Never run two releases at once (they would race on tags).
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write # push tags, create the GitHub Release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run check
+      - run: pnpm run test
+      - run: pnpm run build # produces dist/ (git-ignored on branches)
+
+      # Dogfood the action we just built. dry_run only computes the next tag
+      # and changelog: the tag is created below, on a commit that contains dist/.
+      - name: Compute next version
+        id: next
+        uses: ./
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tag_prefix: ""
+          release_branches: release
+          default_bump: false # docs/test/ci/style/chore alone do not release
+          extended_release_rules: true
+          dry_run: true
+
+      - name: Skip if the tag already exists
+        id: guard
+        if: steps.next.outputs.new_tag != ''
+        env:
+          TAG: ${{ steps.next.outputs.new_tag }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, nothing to release."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Tag a commit that contains dist/ and move the major tag
+        if: steps.guard.outputs.release == 'true'
+        env:
+          TAG: ${{ steps.next.outputs.new_tag }}
+          VERSION: ${{ steps.next.outputs.new_version }}
+        run: |
+          MAJOR="${VERSION%%.*}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --detach
+          git add -f dist
+          git commit -m "build: dist for $TAG"
+          git tag -a "$TAG" -m "$TAG"
+          git tag -fa "$MAJOR" -m "$MAJOR"
+          git push origin "refs/tags/$TAG"
+          git push --force origin "refs/tags/$MAJOR"
+
+      - name: Create the GitHub Release
+        if: steps.guard.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.next.outputs.new_tag }}
+          NOTES: ${{ steps.next.outputs.changelog }}
+        run: gh release create "$TAG" --verify-tag --title "$TAG" --notes "$NOTES"
