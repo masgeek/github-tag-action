@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+## [3.0.0] - 2026-11-27
+
+### ⚠️ BREAKING CHANGES
+
+- **build:** switch to ncc bundling for distribution — Existing environments restricted to older Node.js versions may fail to execute the action
+
+### 🐛 Bug fixes
+
+- **changelog:** ensure conventional-commits preset is bundled (8d6e187)
+
+### 🛠️ Build
+
+- **dist:** bundle distribution build (10c6d8b)
+- **dist:** bundle handlebars templates (d28a082)
+
 ## [2.0.0] - 2026-11-27
 
 ### ⚠️ BREAKING CHANGES
