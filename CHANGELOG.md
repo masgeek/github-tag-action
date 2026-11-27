@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+## [4.0.0] - 2026-11-27
+
+### ⚠️ BREAKING CHANGES
+
+- update documentation with detailed usage and features — Existing users on 'master' branch will no longer trigger release tags unless they explicitly set release_branches
+- ensure prerelease tags are stripped and handle empty branch inputs — Users relying on the default behavior for 'master' branches will no longer generate release tags unless they explicitly configure the input.; Branches named 'develop' will now be treated as pre-release branches by default, potentially changing versioning behavior for users who didn't specify this input.; Prerelease runs will no longer preserve their prerelease suffix (e.g., v1.2.3-beta.0 becomes v1.2.3), breaking the ability to generate actual prerelease version strings.
+
+### 🐛 Bug fixes
+
+- ensure prerelease tags are stripped and handle empty branch inputs (e18a024)
+
+### 📝 Documentation
+
+- update documentation with detailed usage and features (46bfebf)
+
 ## [3.0.0] - 2026-11-27
 
 ### ⚠️ BREAKING CHANGES
